@@ -79,8 +79,6 @@ flutter:
   # Assets
   assets:
     - assets/leint_logo.png
-    - assets/leadstal.csv
-    - assets/organic produce.csv
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

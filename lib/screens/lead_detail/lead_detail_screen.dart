@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // Added for Clipboard
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/constants/app_colors.dart';
@@ -101,6 +102,57 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
     final uri = Uri.parse(url);
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+
+  void _openWebsite(String url) async {
+    if (url == 'Not Found' || url.isEmpty) return;
+    
+    // Add https:// if not present
+    String formattedUrl = url;
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      formattedUrl = 'https://$url';
+    }
+    
+    final uri = Uri.parse(formattedUrl);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not open website'),
+            backgroundColor: AppColors.errorRed,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    }
+  }
+
+  void _copyToClipboard(String text, String label) async {
+    if (text == 'Not Found' || text.isEmpty) return;
+    
+    await Clipboard.setData(ClipboardData(text: text));
+    
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.check_circle, color: Colors.white, size: 20),
+              const SizedBox(width: 8),
+              Text('$label copied to clipboard'),
+            ],
+          ),
+          backgroundColor: AppColors.successGreen,
+          duration: const Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+        ),
+      );
     }
   }
 
@@ -545,11 +597,75 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
         ]),
         const SizedBox(height: 12),
         
-        // Contact
+        
+        // Contact - INTERACTIVE
         _buildMobileSection('Contact', [
-          _buildField('Phone', lead.phone),
+          // Copyable phone
+          InkWell(
+            onTap: () => _copyToClipboard(lead.phone, 'Phone number'),
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Phone : ',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                  ),
+                  Expanded(
+                    child: Text(
+                      lead.phone,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: lead.phone != 'Not Found' 
+                            ? AppColors.primaryPurple 
+                            : AppColors.mediumGrey,
+                        decoration: lead.phone != 'Not Found' 
+                            ? TextDecoration.underline 
+                            : null,
+                      ),
+                    ),
+                  ),
+                  if (lead.phone != 'Not Found')
+                    const Padding(
+                      padding: EdgeInsets.only(left: 4),
+                      child: Icon(Icons.copy, size: 12, color: AppColors.mediumGrey),
+                    ),
+                ],
+              ),
+            ),
+          ),
           _buildField('Email', lead.email),
-          _buildField('Website', lead.website),
+          // Clickable website
+          InkWell(
+            onTap: () => _openWebsite(lead.website),
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Website : ',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                  ),
+                  Expanded(
+                    child: Text(
+                      lead.website,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: lead.website != 'Not Found' 
+                            ? AppColors.primaryPurple 
+                            : AppColors.mediumGrey,
+                        decoration: lead.website != 'Not Found' 
+                            ? TextDecoration.underline 
+                            : null,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ]),
         const SizedBox(height: 12),
         
@@ -663,7 +779,7 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
               ),
             ),
             const SizedBox(width: 20),
-            // Website section
+            // Website section - CLICKABLE
             SizedBox(
               width: 120,
               child: Column(
@@ -674,15 +790,28 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
                     style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
                   ),
                   const SizedBox(height: 8),
-                  Text(
-                    lead.website,
-                    style: const TextStyle(fontSize: 12, color: AppColors.mediumGrey),
+                  InkWell(
+                    onTap: () => _openWebsite(lead.website),
+                    child: Text(
+                      lead.website,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: lead.website != 'Not Found' 
+                            ? AppColors.primaryPurple 
+                            : AppColors.mediumGrey,
+                        decoration: lead.website != 'Not Found' 
+                            ? TextDecoration.underline 
+                            : null,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                 ],
               ),
             ),
             const SizedBox(width: 20),
-            // Contact Info section
+            // Contact Info section - COPYABLE PHONE
             SizedBox(
               width: 150,
               child: Column(
@@ -693,7 +822,39 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
                     style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
                   ),
                   const SizedBox(height: 8),
-                  _buildField('Phone', lead.phone),
+                  // Copyable phone number
+                  InkWell(
+                    onTap: () => _copyToClipboard(lead.phone, 'Phone number'),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Phone : ',
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                        ),
+                        Expanded(
+                          child: Text(
+                            lead.phone,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: lead.phone != 'Not Found' 
+                                  ? AppColors.primaryPurple 
+                                  : AppColors.mediumGrey,
+                              decoration: lead.phone != 'Not Found' 
+                                  ? TextDecoration.underline 
+                                  : null,
+                            ),
+                          ),
+                        ),
+                        if (lead.phone != 'Not Found')
+                          const Padding(
+                            padding: EdgeInsets.only(left: 4),
+                            child: Icon(Icons.copy, size: 12, color: AppColors.mediumGrey),
+                          ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 6),
                   _buildField('Email', lead.email),
                 ],
               ),
