@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "208495181492",
+    "project_id": "leint-89ed4",
+    "storage_bucket": "leint-89ed4.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:208495181492:android:cc47c49e6395496d12a1e1",
+        "android_client_info": {
+          "package_name": "com.example.leint"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyANy4CKAdJaeceyaL1iG69T7N6SUBj5jJk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
