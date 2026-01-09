@@ -18,11 +18,11 @@ class LeadDetailScreen extends StatefulWidget {
 class _LeadDetailScreenState extends State<LeadDetailScreen> {
   // Filter states
   final Set<LeadStatus> _statusFilters = {};
-  bool _showFilterDialog = false;
   
   // Filter toggles for Show Filter dialog
   bool _filterSocialMedia = false;
   bool _filterWebsite = false;
+  bool _filterNoWebsite = false; // NEW: Filter for leads without website
   bool _filterPhoneNumber = false;
   bool _filterEmails = false;
   bool _filterReview = false;
@@ -47,6 +47,9 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
     }
     if (_filterWebsite) {
       leads = leads.where((lead) => lead.website != 'Not Found').toList();
+    }
+    if (_filterNoWebsite) {
+      leads = leads.where((lead) => lead.website == 'Not Found').toList();
     }
     if (_filterPhoneNumber) {
       leads = leads.where((lead) => lead.phone != 'Not Found').toList();
@@ -162,14 +165,16 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
       builder: (context) => _FilterDialog(
         filterSocialMedia: _filterSocialMedia,
         filterWebsite: _filterWebsite,
+        filterNoWebsite: _filterNoWebsite,
         filterPhoneNumber: _filterPhoneNumber,
         filterEmails: _filterEmails,
         filterReview: _filterReview,
         filterRatings: _filterRatings,
-        onApply: (socialMedia, website, phone, email, review, ratings) {
+        onApply: (socialMedia, website, noWebsite, phone, email, review, ratings) {
           setState(() {
             _filterSocialMedia = socialMedia;
             _filterWebsite = website;
+            _filterNoWebsite = noWebsite;
             _filterPhoneNumber = phone;
             _filterEmails = email;
             _filterReview = review;
@@ -181,6 +186,7 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
           setState(() {
             _filterSocialMedia = false;
             _filterWebsite = false;
+            _filterNoWebsite = false;
             _filterPhoneNumber = false;
             _filterEmails = false;
             _filterReview = false;
@@ -1059,16 +1065,18 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
 class _FilterDialog extends StatefulWidget {
   final bool filterSocialMedia;
   final bool filterWebsite;
+  final bool filterNoWebsite;
   final bool filterPhoneNumber;
   final bool filterEmails;
   final bool filterReview;
   final bool filterRatings;
-  final Function(bool, bool, bool, bool, bool, bool) onApply;
+  final Function(bool, bool, bool, bool, bool, bool, bool) onApply;
   final VoidCallback onReset;
 
   const _FilterDialog({
     required this.filterSocialMedia,
     required this.filterWebsite,
+    required this.filterNoWebsite,
     required this.filterPhoneNumber,
     required this.filterEmails,
     required this.filterReview,
@@ -1084,6 +1092,7 @@ class _FilterDialog extends StatefulWidget {
 class _FilterDialogState extends State<_FilterDialog> {
   late bool _socialMedia;
   late bool _website;
+  late bool _noWebsite;
   late bool _phoneNumber;
   late bool _emails;
   late bool _review;
@@ -1094,6 +1103,7 @@ class _FilterDialogState extends State<_FilterDialog> {
     super.initState();
     _socialMedia = widget.filterSocialMedia;
     _website = widget.filterWebsite;
+    _noWebsite = widget.filterNoWebsite;
     _phoneNumber = widget.filterPhoneNumber;
     _emails = widget.filterEmails;
     _review = widget.filterReview;
@@ -1118,6 +1128,7 @@ class _FilterDialogState extends State<_FilterDialog> {
             const SizedBox(height: 20),
             _buildToggleRow('Social Media', _socialMedia, (v) => setState(() => _socialMedia = v)),
             _buildToggleRow('Website', _website, (v) => setState(() => _website = v)),
+            _buildToggleRow('No Website', _noWebsite, (v) => setState(() => _noWebsite = v)),
             _buildToggleRow('Phone Number', _phoneNumber, (v) => setState(() => _phoneNumber = v)),
             _buildToggleRow('Emails', _emails, (v) => setState(() => _emails = v)),
             _buildToggleRow('Review', _review, (v) => setState(() => _review = v)),
@@ -1135,7 +1146,7 @@ class _FilterDialogState extends State<_FilterDialog> {
                 ),
                 ElevatedButton(
                   onPressed: () {
-                    widget.onApply(_socialMedia, _website, _phoneNumber, _emails, _review, _ratings);
+                    widget.onApply(_socialMedia, _website, _noWebsite, _phoneNumber, _emails, _review, _ratings);
                     Navigator.pop(context);
                   },
                   child: const Text('Apply'),
