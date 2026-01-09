@@ -112,6 +112,7 @@ class FirestoreService {
     int? noResponse,
     int? accepted,
     int? rejected,
+    int? selected,
   }) async {
     final updates = <String, dynamic>{};
     if (unreached != null) updates['unreached'] = unreached;
@@ -119,6 +120,7 @@ class FirestoreService {
     if (noResponse != null) updates['noResponse'] = noResponse;
     if (accepted != null) updates['accepted'] = accepted;
     if (rejected != null) updates['rejected'] = rejected;
+    if (selected != null) updates['selected'] = selected;
 
     if (updates.isNotEmpty) {
       await _leadFilesCollection.doc(fileId).update(updates);

@@ -304,8 +304,8 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
             runSpacing: 8,
             children: [
               _buildStatItem('Total', '${file.totalLeads} Leads', AppColors.primaryPurple),
-              _buildStatItem('Unreached', '${file.unreached}', AppColors.mediumGrey),
-              _buildStatItem('Accepted', '${file.accepted}', AppColors.successGreen),
+              _buildStatItem('Selected', '${file.selected}', AppColors.successGreen),
+              _buildStatItem('Follow Ups', '${file.followUps}', AppColors.warningOrange),
               _buildStatItem('Date', _formatDate(file.uploadDate), AppColors.darkCharcoal),
             ],
           ),
@@ -360,8 +360,9 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
             spacing: 8,
             runSpacing: 8,
             children: [
-              _buildFilterChip('Unreached', LeadStatus.unreached),
+              _buildFilterChip('Selected', LeadStatus.selected),
               _buildFilterChip('Follow Up', LeadStatus.followUp),
+              _buildFilterChip('Unreached', LeadStatus.unreached),
               _buildFilterChip('No Response', LeadStatus.noResponse),
               _buildFilterChip('Status', null, isStatusMenu: true),
               _buildShowFilterButton(),
@@ -388,8 +389,9 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
           spacing: 8,
           runSpacing: 8,
           children: [
-            _buildFilterChip('Unreached', LeadStatus.unreached),
+            _buildFilterChip('Selected', LeadStatus.selected),
             _buildFilterChip('Follow Up', LeadStatus.followUp),
+            _buildFilterChip('Unreached', LeadStatus.unreached),
             _buildFilterChip('No Response', LeadStatus.noResponse),
             _buildFilterChip('Status', null, isStatusMenu: true),
             _buildShowFilterButton(),
@@ -402,6 +404,31 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
   Widget _buildFilterChip(String label, LeadStatus? status, {bool isStatusMenu = false}) {
     if (isStatusMenu) {
       return PopupMenuButton<LeadStatus>(
+        itemBuilder: (context) => [
+          PopupMenuItem(
+            value: LeadStatus.accepted,
+            child: Row(
+              children: [
+                if (_statusFilters.contains(LeadStatus.accepted))
+                  const Icon(Icons.check, size: 16, color: AppColors.successGreen),
+                if (_statusFilters.contains(LeadStatus.accepted)) const SizedBox(width: 8),
+                const Text('Accepted'),
+              ],
+            ),
+          ),
+          PopupMenuItem(
+            value: LeadStatus.rejected,
+            child: Row(
+              children: [
+                if (_statusFilters.contains(LeadStatus.rejected))
+                  const Icon(Icons.check, size: 16, color: AppColors.errorRed),
+                if (_statusFilters.contains(LeadStatus.rejected)) const SizedBox(width: 8),
+                const Text('Rejected'),
+              ],
+            ),
+          ),
+        ],
+        onSelected: _toggleStatusFilter,
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
@@ -429,31 +456,6 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
             ],
           ),
         ),
-        itemBuilder: (context) => [
-          PopupMenuItem(
-            value: LeadStatus.accepted,
-            child: Row(
-              children: [
-                if (_statusFilters.contains(LeadStatus.accepted))
-                  const Icon(Icons.check, size: 16, color: AppColors.successGreen),
-                if (_statusFilters.contains(LeadStatus.accepted)) const SizedBox(width: 8),
-                const Text('Accepted'),
-              ],
-            ),
-          ),
-          PopupMenuItem(
-            value: LeadStatus.rejected,
-            child: Row(
-              children: [
-                if (_statusFilters.contains(LeadStatus.rejected))
-                  const Icon(Icons.check, size: 16, color: AppColors.errorRed),
-                if (_statusFilters.contains(LeadStatus.rejected)) const SizedBox(width: 8),
-                const Text('Rejected'),
-              ],
-            ),
-          ),
-        ],
-        onSelected: _toggleStatusFilter,
       );
     }
 
@@ -957,10 +959,10 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
         ),
       ),
       itemBuilder: (context) => LeadStatus.values.map((status) {
-        return PopupMenuItem(
-          value: status,
-          child: Text(_getStatusLabel(status)),
-        );
+          return PopupMenuItem(
+            value: status,
+            child: Text(_getStatusLabel(status)),
+          );
       }).toList(),
       onSelected: (status) {
         context.read<LeadsProvider>().updateLeadStatus(lead.id, status);
@@ -972,6 +974,8 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
     switch (status) {
       case LeadStatus.unreached:
         return 'Unreached';
+      case LeadStatus.selected:
+        return 'Selected';
       case LeadStatus.followUp:
         return 'Follow Up';
       case LeadStatus.noResponse:
@@ -987,6 +991,8 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
     switch (status) {
       case LeadStatus.unreached:
         return AppColors.mediumGrey;
+      case LeadStatus.selected:
+        return AppColors.successGreen;
       case LeadStatus.followUp:
         return AppColors.warningOrange;
       case LeadStatus.noResponse:

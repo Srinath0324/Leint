@@ -1,15 +1,19 @@
 /// Lead status enum for tracking lead progress
 enum LeadStatus {
   unreached,
+  selected,
   followUp,
   noResponse,
   accepted,
   rejected;
 
+
   String get displayName {
     switch (this) {
       case LeadStatus.unreached:
         return 'Unreached';
+      case LeadStatus.selected:
+        return 'Selected';  
       case LeadStatus.followUp:
         return 'Follow Up';
       case LeadStatus.noResponse:
@@ -23,6 +27,8 @@ enum LeadStatus {
 
   static LeadStatus fromString(String value) {
     switch (value.toLowerCase().replaceAll(' ', '').replaceAll('_', '')) {
+      case 'selected':
+        return LeadStatus.selected;
       case 'followup':
         return LeadStatus.followUp;
       case 'noresponse':

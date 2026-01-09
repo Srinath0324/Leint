@@ -59,6 +59,7 @@ class UserStats {
   final int noResponse;
   final int accepted;
   final int rejected;
+  final int selected;
 
   UserStats({
     this.totalLeads = 0,
@@ -67,6 +68,7 @@ class UserStats {
     this.noResponse = 0,
     this.accepted = 0,
     this.rejected = 0,
+    this.selected = 0,
   });
 
   double get conversionRate {
@@ -82,6 +84,7 @@ class UserStats {
       noResponse: map['noResponse'] ?? 0,
       accepted: map['accepted'] ?? 0,
       rejected: map['rejected'] ?? 0,
+      selected: map['selected'] ?? 0,
     );
   }
 
@@ -93,6 +96,7 @@ class UserStats {
       'noResponse': noResponse,
       'accepted': accepted,
       'rejected': rejected,
+      'selected': selected,
     };
   }
 }

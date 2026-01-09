@@ -12,6 +12,7 @@ class LeadFileModel {
   final int noResponse;
   final int accepted;
   final int rejected;
+  final int selected;
   final DateTime uploadDate;
 
   LeadFileModel({
@@ -25,6 +26,7 @@ class LeadFileModel {
     this.noResponse = 0,
     this.accepted = 0,
     this.rejected = 0,
+    this.selected = 0,
     required this.uploadDate,
   });
 
@@ -40,6 +42,7 @@ class LeadFileModel {
       noResponse: map['noResponse'] ?? 0,
       accepted: map['accepted'] ?? 0,
       rejected: map['rejected'] ?? 0,
+      selected: map['selected'] ?? 0,
       uploadDate: (map['uploadDate'] as Timestamp?)?.toDate() ?? DateTime.now(),
     );
   }
@@ -55,6 +58,7 @@ class LeadFileModel {
       'noResponse': noResponse,
       'accepted': accepted,
       'rejected': rejected,
+      'selected': selected,
       'uploadDate': Timestamp.fromDate(uploadDate),
     };
   }
@@ -68,6 +72,7 @@ class LeadFileModel {
     int? noResponse,
     int? accepted,
     int? rejected,
+    int? selected,
   }) {
     return LeadFileModel(
       id: id,
@@ -80,6 +85,7 @@ class LeadFileModel {
       noResponse: noResponse ?? this.noResponse,
       accepted: accepted ?? this.accepted,
       rejected: rejected ?? this.rejected,
+      selected: selected ?? this.selected,
       uploadDate: uploadDate,
     );
   }

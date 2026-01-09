@@ -216,10 +216,12 @@ class LeadsProvider extends ChangeNotifier {
       final newStats = UserStats(
         totalLeads: _userStats.totalLeads + newLeadsCount,
         unreached: _userStats.unreached + newLeadsCount,
+        selected: _userStats.selected,
         followUps: _userStats.followUps,
         noResponse: _userStats.noResponse,
         accepted: _userStats.accepted,
         rejected: _userStats.rejected,
+        
       );
 
       await _firestoreService.updateUserStats(_currentUserId!, newStats);
@@ -288,10 +290,12 @@ class LeadsProvider extends ChangeNotifier {
       await _firestoreService.updateLeadFileStats(
         _selectedFile!.id,
         unreached: stats['unreached']!,
+        selected: stats['selected']!,
         followUps: stats['followUps']!,
         noResponse: stats['noResponse']!,
         accepted: stats['accepted']!,
         rejected: stats['rejected']!,
+
       );
 
       // Recalculate user stats by counting all leads from all files
@@ -305,6 +309,7 @@ class LeadsProvider extends ChangeNotifier {
   Map<String, int> _calculateFileStats(List<LeadModel> leads) {
     final stats = {
       'unreached': 0,
+      'selected': 0,
       'followUps': 0,
       'noResponse': 0,
       'accepted': 0,
@@ -316,6 +321,8 @@ class LeadsProvider extends ChangeNotifier {
         case LeadStatus.unreached:
           stats['unreached'] = stats['unreached']! + 1;
           break;
+        case LeadStatus.selected:
+          stats['selected'] = stats['selected']! + 1;
         case LeadStatus.followUp:
           stats['followUps'] = stats['followUps']! + 1;
           break;
@@ -343,25 +350,30 @@ class LeadsProvider extends ChangeNotifier {
       final allFiles = await _firestoreService.getLeadFiles(_currentUserId!);
       
       int totalLeads = 0;
+      int selected = 0;
       int unreached = 0;
       int followUps = 0;
       int noResponse = 0;
       int accepted = 0;
       int rejected = 0;
 
+
       // Sum up stats from all files
       for (final file in allFiles) {
         totalLeads += file.totalLeads;
         unreached += file.unreached;
+        selected += file.selected;
         followUps += file.followUps;
         noResponse += file.noResponse;
         accepted += file.accepted;
         rejected += file.rejected;
+        
       }
 
       final newUserStats = UserStats(
         totalLeads: totalLeads,
         unreached: unreached,
+        selected: selected,
         followUps: followUps,
         noResponse: noResponse,
         accepted: accepted,
@@ -369,7 +381,7 @@ class LeadsProvider extends ChangeNotifier {
       );
 
       await _firestoreService.updateUserStats(_currentUserId!, newUserStats);
-      debugPrint('Recalculated user stats: total=$totalLeads, unreached=$unreached, followUps=$followUps, accepted=$accepted');
+      debugPrint('Recalculated user stats: total=$totalLeads, unreached=$unreached, followUps=$followUps, accepted=$accepted, selected=$selected');
     } catch (e) {
       debugPrint('Error recalculating user stats: $e');
     }
