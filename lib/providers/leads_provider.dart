@@ -4,7 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../models/lead_file_model.dart';
 import '../models/lead_model.dart';
-import '../models/user_model.dart';
+import '../models/workspace_model.dart';
 import '../services/csv_service.dart';
 import '../services/firestore_service.dart';
 
@@ -13,16 +13,15 @@ class LeadsProvider extends ChangeNotifier {
   final FirestoreService _firestoreService = FirestoreService();
   
   String? _currentUserId;
+  String? _currentWorkspaceId;
   
   // Real-time data from Firestore
   List<LeadFileModel> _leadFiles = [];
   List<LeadFileModel> _recentLeadFiles = [];
-  UserStats _userStats = UserStats();
   
   // Loading states
   bool _isUploading = false;
   bool _isLoadingLeadFiles = true;
-  bool _isLoadingUserStats = true;
   String? _error;
 
   // Selected file for detail view
@@ -33,36 +32,42 @@ class LeadsProvider extends ChangeNotifier {
   // Stream subscriptions
   StreamSubscription<List<LeadFileModel>>? _leadFilesSubscription;
   StreamSubscription<List<LeadFileModel>>? _recentLeadFilesSubscription;
-  StreamSubscription<UserModel?>? _userStatsSubscription;
 
   // Getters
   List<LeadFileModel> get leadFiles => _leadFiles;
   List<LeadFileModel> get recentLeadFiles => _recentLeadFiles;
-  UserStats get userStats => _userStats;
   bool get isUploading => _isUploading;
   bool get isLoadingLeadFiles => _isLoadingLeadFiles;
-  bool get isLoadingUserStats => _isLoadingUserStats;
   bool get isLoadingLeads => _isLoadingLeads;
   String? get error => _error;
   LeadFileModel? get selectedFile => _selectedFile;
   List<LeadModel> get selectedFileLeads => _selectedFileLeads;
 
   /// Initialize provider with user ID and start real-time listeners
-  void initialize(String userId) {
-    if (_currentUserId == userId) return; // Already initialized
+  void initialize(String userId, {String? workspaceId}) {
+    if (_currentUserId == userId && _currentWorkspaceId == workspaceId) return; // Already initialized
     
     _currentUserId = userId;
+    _currentWorkspaceId = workspaceId;
+    _startListeners();
+  }
+
+  /// Update workspace and restart listeners
+  void setWorkspace(String workspaceId) {
+    if (_currentWorkspaceId == workspaceId) return;
+    
+    _currentWorkspaceId = workspaceId;
     _startListeners();
   }
 
   /// Start all real-time Firestore listeners
   void _startListeners() {
-    if (_currentUserId == null) return;
+    if (_currentUserId == null || _currentWorkspaceId == null) return;
 
-    // Listen to all lead files
+    // Listen to all lead files for current workspace
     _leadFilesSubscription?.cancel();
     _leadFilesSubscription = _firestoreService
-        .streamLeadFiles(_currentUserId!)
+        .streamLeadFiles(_currentWorkspaceId!, isWorkspace: true)
         .listen(
           (files) {
             _leadFiles = files;
@@ -80,7 +85,7 @@ class LeadsProvider extends ChangeNotifier {
     // Listen to recent lead files (last 5)
     _recentLeadFilesSubscription?.cancel();
     _recentLeadFilesSubscription = _firestoreService
-        .streamRecentLeadFiles(_currentUserId!, limit: 5)
+        .streamRecentLeadFiles(_currentWorkspaceId!, limit: 5, isWorkspace: true)
         .listen(
           (files) {
             _recentLeadFiles = files;
@@ -88,25 +93,6 @@ class LeadsProvider extends ChangeNotifier {
           },
           onError: (error) {
             debugPrint('Error streaming recent lead files: $error');
-          },
-        );
-
-    // Listen to user stats
-    _userStatsSubscription?.cancel();
-    _userStatsSubscription = _firestoreService
-        .streamUser(_currentUserId!)
-        .listen(
-          (user) {
-            if (user != null) {
-              _userStats = user.totalStats;
-              _isLoadingUserStats = false;
-              notifyListeners();
-            }
-          },
-          onError: (error) {
-            debugPrint('Error streaming user stats: $error');
-            _isLoadingUserStats = false;
-            notifyListeners();
           },
         );
   }
@@ -138,8 +124,8 @@ class LeadsProvider extends ChangeNotifier {
     required String title,
     required String source,
   }) async {
-    if (_currentUserId == null) {
-      _error = 'User not authenticated';
+    if (_currentUserId == null || _currentWorkspaceId == null) {
+      _error = 'User not authenticated or no workspace selected';
       notifyListeners();
       return false;
     }
@@ -170,10 +156,12 @@ class LeadsProvider extends ChangeNotifier {
         return false;
       }
 
-      // Create lead file model
+      // Create lead file model with correct workspaceId
       final leadFile = LeadFileModel(
         id: '', // Will be set by Firestore
         userId: _currentUserId!,
+        workspaceId: _currentWorkspaceId!, // Use current workspace
+        createdBy: _currentUserId!,
         title: title,
         source: source,
         totalLeads: leads.length,
@@ -193,8 +181,8 @@ class LeadsProvider extends ChangeNotifier {
       await _firestoreService.addLeads(fileId, leads);
       debugPrint('Added ${leads.length} leads to file $fileId');
 
-      // Update user stats
-      await _updateUserStatsAfterUpload(leads.length);
+      // Update workspace stats
+      await _updateWorkspaceStatsAfterUpload(leads.length);
 
       _isUploading = false;
       notifyListeners();
@@ -208,26 +196,15 @@ class LeadsProvider extends ChangeNotifier {
     }
   }
 
-  /// Update user stats after upload
-  Future<void> _updateUserStatsAfterUpload(int newLeadsCount) async {
-    if (_currentUserId == null) return;
+  /// Update workspace stats after upload
+  Future<void> _updateWorkspaceStatsAfterUpload(int newLeadsCount) async {
+    if (_currentWorkspaceId == null) return;
 
     try {
-      final newStats = UserStats(
-        totalLeads: _userStats.totalLeads + newLeadsCount,
-        unreached: _userStats.unreached + newLeadsCount,
-        selected: _userStats.selected,
-        followUps: _userStats.followUps,
-        noResponse: _userStats.noResponse,
-        accepted: _userStats.accepted,
-        rejected: _userStats.rejected,
-        
-      );
-
-      await _firestoreService.updateUserStats(_currentUserId!, newStats);
-      debugPrint('Updated user stats: total=${newStats.totalLeads}');
+      // Recalculate workspace stats from all lead files
+      await _recalculateAndUpdateWorkspaceStats();
     } catch (e) {
-      debugPrint('Error updating user stats: $e');
+      debugPrint('Error updating workspace stats: $e');
     }
   }
 
@@ -266,7 +243,7 @@ class LeadsProvider extends ChangeNotifier {
       // Update local list
       _selectedFileLeads[index] = _selectedFileLeads[index].copyWith(status: newStatus);
       
-      // Update file and user stats
+      // Update file and workspace stats
       await _updateStatsForStatusChange(oldStatus, newStatus);
       
       notifyListeners();
@@ -280,7 +257,7 @@ class LeadsProvider extends ChangeNotifier {
 
   /// Update stats when status changes
   Future<void> _updateStatsForStatusChange(LeadStatus oldStatus, LeadStatus newStatus) async {
-    if (_currentUserId == null || _selectedFile == null) return;
+    if (_currentWorkspaceId == null || _selectedFile == null) return;
 
     try {
       // Recalculate file stats by counting actual lead statuses
@@ -295,11 +272,10 @@ class LeadsProvider extends ChangeNotifier {
         noResponse: stats['noResponse']!,
         accepted: stats['accepted']!,
         rejected: stats['rejected']!,
-
       );
 
-      // Recalculate user stats by counting all leads from all files
-      await _recalculateAndUpdateUserStats();
+      // Recalculate workspace stats by counting all leads from all files
+      await _recalculateAndUpdateWorkspaceStats();
     } catch (e) {
       debugPrint('Error updating stats: $e');
     }
@@ -323,6 +299,7 @@ class LeadsProvider extends ChangeNotifier {
           break;
         case LeadStatus.selected:
           stats['selected'] = stats['selected']! + 1;
+          break;
         case LeadStatus.followUp:
           stats['followUps'] = stats['followUps']! + 1;
           break;
@@ -341,13 +318,13 @@ class LeadsProvider extends ChangeNotifier {
     return stats;
   }
 
-  /// Recalculate user stats from all lead files
-  Future<void> _recalculateAndUpdateUserStats() async {
-    if (_currentUserId == null) return;
+  /// Recalculate workspace stats from all lead files
+  Future<void> _recalculateAndUpdateWorkspaceStats() async {
+    if (_currentWorkspaceId == null) return;
 
     try {
-      // Get all lead files
-      final allFiles = await _firestoreService.getLeadFiles(_currentUserId!);
+      // Get all lead files for this workspace
+      final allFiles = await _firestoreService.getLeadFiles(_currentWorkspaceId!, isWorkspace: true);
       
       int totalLeads = 0;
       int selected = 0;
@@ -356,7 +333,6 @@ class LeadsProvider extends ChangeNotifier {
       int noResponse = 0;
       int accepted = 0;
       int rejected = 0;
-
 
       // Sum up stats from all files
       for (final file in allFiles) {
@@ -367,26 +343,24 @@ class LeadsProvider extends ChangeNotifier {
         noResponse += file.noResponse;
         accepted += file.accepted;
         rejected += file.rejected;
-        
       }
 
-      final newUserStats = UserStats(
-        totalLeads: totalLeads,
-        unreached: unreached,
-        selected: selected,
-        followUps: followUps,
-        noResponse: noResponse,
-        accepted: accepted,
-        rejected: rejected,
-      );
+      final newWorkspaceStats = {
+        'totalLeads': totalLeads,
+        'unreached': unreached,
+        'selected': selected,
+        'followUps': followUps,
+        'noResponse': noResponse,
+        'accepted': accepted,
+        'rejected': rejected,
+      };
 
-      await _firestoreService.updateUserStats(_currentUserId!, newUserStats);
-      debugPrint('Recalculated user stats: total=$totalLeads, unreached=$unreached, followUps=$followUps, accepted=$accepted, selected=$selected');
+      await _firestoreService.updateWorkspaceStats(_currentWorkspaceId!, newWorkspaceStats);
+      debugPrint('Recalculated workspace stats: total=$totalLeads, unreached=$unreached, followUps=$followUps, accepted=$accepted, selected=$selected');
     } catch (e) {
-      debugPrint('Error recalculating user stats: $e');
+      debugPrint('Error recalculating workspace stats: $e');
     }
   }
-
 
   /// Clear selected file
   void clearSelectedFile() {
@@ -406,8 +380,8 @@ class LeadsProvider extends ChangeNotifier {
     // Cancel all subscriptions
     _leadFilesSubscription?.cancel();
     _recentLeadFilesSubscription?.cancel();
-    _userStatsSubscription?.cancel();
     _currentUserId = null;
+    _currentWorkspaceId = null;
     super.dispose();
   }
 }

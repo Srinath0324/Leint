@@ -5,6 +5,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user_model.dart';
 import '../services/firestore_service.dart';
+import '../services/workspace_service.dart';
 
 /// Authentication provider for managing user auth state
 class AuthProvider extends ChangeNotifier {
@@ -113,17 +114,25 @@ class AuthProvider extends ChangeNotifier {
       final existingUser = await _firestoreService.getUser(firebaseUser.uid);
       
       if (existingUser == null) {
-        // Create new user document with initial stats
+        // NEW USER - Create workspace first
+        final workspaceService = WorkspaceService();
+        final workspaceId = await workspaceService.createWorkspace(
+          name: 'My Workspace',
+          ownerId: firebaseUser.uid,
+        );
+        
+        // Create new user document with initial workspace
         final newUser = UserModel(
           uid: firebaseUser.uid,
           displayName: firebaseUser.displayName ?? 'User',
           email: firebaseUser.email ?? '',
           photoURL: firebaseUser.photoURL,
-          totalStats: UserStats(), // Initialize with zero stats
+          currentWorkspaceId: workspaceId,
+          workspaceIds: [workspaceId],
         );
         
         await _firestoreService.saveUser(newUser);
-        debugPrint('Created new user document for ${firebaseUser.uid}');
+        debugPrint('Created new user document and default workspace for ${firebaseUser.uid}');
       } else {
         // Update existing user info (in case profile changed)
         final updatedUser = existingUser.copyWith(

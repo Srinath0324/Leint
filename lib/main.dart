@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'core/theme/app_theme.dart';
 import 'providers/auth_provider.dart';
 import 'providers/leads_provider.dart';
+import 'providers/workspace_provider.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/dashboard/dashboard_screen.dart';
 
@@ -47,6 +48,7 @@ class LeintApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()),
+        ChangeNotifierProvider(create: (_) => WorkspaceProvider()),
         ChangeNotifierProvider(create: (_) => LeadsProvider()),
       ],
       child: MaterialApp(
@@ -60,13 +62,20 @@ class LeintApp extends StatelessWidget {
 }
 
 /// Wrapper widget that handles auth state and navigation
-class AuthWrapper extends StatelessWidget {
+class AuthWrapper extends StatefulWidget {
   const AuthWrapper({super.key});
 
   @override
+  State<AuthWrapper> createState() => _AuthWrapperState();
+}
+
+class _AuthWrapperState extends State<AuthWrapper> {
+  bool _isInitialized = false;
+
+  @override
   Widget build(BuildContext context) {
-    return Consumer<AuthProvider>(
-      builder: (context, authProvider, _) {
+    return Consumer2<AuthProvider, WorkspaceProvider>(
+      builder: (context, authProvider, workspaceProvider, _) {
         // Show loading while checking auth state
         if (authProvider.isLoading) {
           return const Scaffold(
@@ -78,8 +87,42 @@ class AuthWrapper extends StatelessWidget {
 
         // Navigate based on auth state
         if (authProvider.isAuthenticated) {
+          final userId = authProvider.currentUser!.uid;
+          
+          // Initialize providers once
+          if (!_isInitialized) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              final leadsProvider = context.read<LeadsProvider>();
+              
+              // Initialize workspace provider
+              workspaceProvider.initialize(userId);
+              
+              // Wait for workspace to be set, then initialize leads
+              if (workspaceProvider.currentWorkspaceId != null) {
+                leadsProvider.initialize(userId, workspaceId: workspaceProvider.currentWorkspaceId);
+              }
+              
+              setState(() => _isInitialized = true);
+            });
+          }
+          
+          // Update leads when workspace changes
+          if (_isInitialized && workspaceProvider.currentWorkspaceId != null) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              context.read<LeadsProvider>().setWorkspace(workspaceProvider.currentWorkspaceId!);
+            });
+          }
+          
           return const DashboardScreen();
         } else {
+          // Reset initialization when logged out
+          if (_isInitialized) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                setState(() => _isInitialized = false);
+              }
+            });
+          }
           return const LoginScreen();
         }
       },

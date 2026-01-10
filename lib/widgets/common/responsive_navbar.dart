@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/utils/responsive.dart';
 import '../../providers/auth_provider.dart';
+import '../../widgets/workspace_dropdown.dart';
+import '../../screens/workspace/workspace_settings_screen.dart';
 
 /// Responsive navigation bar with hamburger menu for mobile
 class ResponsiveNavbar extends StatelessWidget {
@@ -84,6 +86,16 @@ class ResponsiveNavbar extends StatelessWidget {
                 ),
                 const SizedBox(width: 16),
               ],
+
+              // Workspace dropdown (flexible to prevent overflow)
+              if (!isMobile)
+                _buildWorkspaceSection(context, isMobile)
+              else
+                Expanded(
+                  child: _buildWorkspaceSection(context, isMobile),
+                ),
+              
+              SizedBox(width: isMobile ? 4 : 12),
 
               // Profile/Logout button
               _buildProfileButton(context, isMobile),
@@ -203,6 +215,38 @@ class ResponsiveNavbar extends StatelessWidget {
     );
   }
 
+  Widget _buildWorkspaceSection(BuildContext context, bool isMobile) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Workspace dropdown (flexible on mobile)
+        if (isMobile)
+          const Flexible(
+            child: WorkspaceDropdown(),
+          )
+        else
+          const WorkspaceDropdown(),
+        // Settings button (desktop only - mobile has it in dropdown)
+        if (!isMobile) ...[
+          const SizedBox(width: 8),
+          IconButton(
+            icon: const Icon(Icons.settings, size: 20),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const WorkspaceSettingsScreen(),
+                ),
+              );
+            },
+            tooltip: 'Workspace Settings',
+            color: AppColors.mediumGrey,
+          ),
+        ],
+      ],
+    );
+  }
+
   Widget _buildProfileButton(BuildContext context, bool isMobile) {
     return Consumer<AuthProvider>(
       builder: (context, authProvider, _) {
@@ -301,11 +345,11 @@ class NavigationDrawerWidget extends StatelessWidget {
         child: Column(
           children: [
             const SizedBox(height: 24),
-            // Logo - INCREASED SIZE
+            // Logo
             Image.asset(
               'assets/leint_logo.png',
-              width: 80,  // Increased from 56 to 80
-              height: 80, // Increased from 56 to 80
+              width: 80,
+              height: 80,
               errorBuilder: (context, error, stackTrace) {
                 return Container(
                   width: 80,
@@ -341,7 +385,7 @@ class NavigationDrawerWidget extends StatelessWidget {
                     color: AppColors.mediumGrey,
                   ),
             ),
-            const SizedBox(height: 32),
+            const SizedBox(height: 24),
             const Divider(height: 1),
             const SizedBox(height: 16),
             // Nav items
@@ -363,6 +407,102 @@ class NavigationDrawerWidget extends StatelessWidget {
               onTap: () {
                 onDestinationSelected(1);
                 Navigator.pop(context);
+              },
+            ),
+            // Workspace Settings
+            _buildDrawerItem(
+              context: context,
+              icon: Icons.settings,
+              label: 'Workspace Settings',
+              isSelected: false,
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const WorkspaceSettingsScreen(),
+                  ),
+                );
+              },
+            ),
+            const Spacer(),
+            // Profile section
+            Consumer<AuthProvider>(
+              builder: (context, authProvider, _) {
+                final user = authProvider.currentUser;
+                return Container(
+                  margin: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.lavenderWash,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    children: [
+                      Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 20,
+                            backgroundColor: AppColors.lavenderMist,
+                            backgroundImage: user?.photoURL != null
+                                ? NetworkImage(user!.photoURL!)
+                                : null,
+                            child: user?.photoURL == null
+                                ? const Icon(
+                                    Icons.person_rounded,
+                                    size: 20,
+                                    color: AppColors.primaryPurple,
+                                  )
+                                : null,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  user?.displayName ?? 'User',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 14,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  user?.email ?? '',
+                                  style: const TextStyle(
+                                    color: AppColors.mediumGrey,
+                                    fontSize: 11,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: () {
+                            authProvider.signOut();
+                          },
+                          icon: const Icon(Icons.logout_rounded, size: 16),
+                          label: const Text('Logout'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppColors.errorRed,
+                            side: const BorderSide(color: AppColors.errorRed),
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
               },
             ),
           ],

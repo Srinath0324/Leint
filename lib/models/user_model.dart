@@ -1,18 +1,25 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 /// User model for storing authenticated user data
 class UserModel {
   final String uid;
   final String displayName;
   final String email;
   final String? photoURL;
-  final UserStats totalStats;
+  final String? currentWorkspaceId;    // Currently active workspace
+  final List<String> workspaceIds;     // All workspaces user belongs to
+  final DateTime lastActiveAt;         // Last time user was active
 
   UserModel({
     required this.uid,
     required this.displayName,
     required this.email,
     this.photoURL,
-    UserStats? totalStats,
-  }) : totalStats = totalStats ?? UserStats();
+    this.currentWorkspaceId,
+    List<String>? workspaceIds,
+    DateTime? lastActiveAt,
+  }) : workspaceIds = workspaceIds ?? [],
+       lastActiveAt = lastActiveAt ?? DateTime.now();
 
   factory UserModel.fromMap(Map<String, dynamic> map, String uid) {
     return UserModel(
@@ -20,9 +27,9 @@ class UserModel {
       displayName: map['displayName'] ?? '',
       email: map['email'] ?? '',
       photoURL: map['photoURL'],
-      totalStats: map['totalStats'] != null
-          ? UserStats.fromMap(map['totalStats'] as Map<String, dynamic>)
-          : UserStats(),
+      currentWorkspaceId: map['currentWorkspaceId'],
+      workspaceIds: List<String>.from(map['workspaceIds'] ?? []),
+      lastActiveAt: (map['lastActiveAt'] as Timestamp?)?.toDate(),
     );
   }
 
@@ -31,7 +38,9 @@ class UserModel {
       'displayName': displayName,
       'email': email,
       'photoURL': photoURL,
-      'totalStats': totalStats.toMap(),
+      'currentWorkspaceId': currentWorkspaceId,
+      'workspaceIds': workspaceIds,
+      'lastActiveAt': Timestamp.fromDate(lastActiveAt),
     };
   }
 
@@ -39,64 +48,18 @@ class UserModel {
     String? displayName,
     String? email,
     String? photoURL,
-    UserStats? totalStats,
+    String? currentWorkspaceId,
+    List<String>? workspaceIds,
+    DateTime? lastActiveAt,
   }) {
     return UserModel(
       uid: uid,
       displayName: displayName ?? this.displayName,
       email: email ?? this.email,
       photoURL: photoURL ?? this.photoURL,
-      totalStats: totalStats ?? this.totalStats,
+      currentWorkspaceId: currentWorkspaceId ?? this.currentWorkspaceId,
+      workspaceIds: workspaceIds ?? this.workspaceIds,
+      lastActiveAt: lastActiveAt ?? this.lastActiveAt,
     );
-  }
-}
-
-/// User statistics for lead tracking
-class UserStats {
-  final int totalLeads;
-  final int unreached;
-  final int followUps;
-  final int noResponse;
-  final int accepted;
-  final int rejected;
-  final int selected;
-
-  UserStats({
-    this.totalLeads = 0,
-    this.unreached = 0,
-    this.followUps = 0,
-    this.noResponse = 0,
-    this.accepted = 0,
-    this.rejected = 0,
-    this.selected = 0,
-  });
-
-  double get conversionRate {
-    if (totalLeads == 0) return 0.0;
-    return (accepted / totalLeads) * 100;
-  }
-
-  factory UserStats.fromMap(Map<String, dynamic> map) {
-    return UserStats(
-      totalLeads: map['totalLeads'] ?? 0,
-      unreached: map['unreached'] ?? 0,
-      followUps: map['followUps'] ?? 0,
-      noResponse: map['noResponse'] ?? 0,
-      accepted: map['accepted'] ?? 0,
-      rejected: map['rejected'] ?? 0,
-      selected: map['selected'] ?? 0,
-    );
-  }
-
-  Map<String, dynamic> toMap() {
-    return {
-      'totalLeads': totalLeads,
-      'unreached': unreached,
-      'followUps': followUps,
-      'noResponse': noResponse,
-      'accepted': accepted,
-      'rejected': rejected,
-      'selected': selected,
-    };
   }
 }

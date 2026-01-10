@@ -1,0 +1,140 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ============ HELPER FUNCTIONS ============
+    
+    // Check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Get current user ID
+    function getUserId() {
+      return request.auth.uid;
+    }
+    
+    // Check if user is a member of workspace
+    function isWorkspaceMember(workspaceId) {
+      return exists(/databases/$(database)/documents/workspace_members/$(getUserId() + '_' + workspaceId));
+    }
+    
+    // Get user's role in workspace
+    function getWorkspaceMemberRole(workspaceId) {
+      return get(/databases/$(database)/documents/workspace_members/$(getUserId() + '_' + workspaceId)).data.role;
+    }
+    
+    // Check if user can edit in workspace
+    function canEditWorkspace(workspaceId) {
+      let role = getWorkspaceMemberRole(workspaceId);
+      return role in ['owner', 'admin', 'member'];
+    }
+    
+    // Check if user is workspace owner
+    function isWorkspaceOwner(workspaceId) {
+      return getWorkspaceMemberRole(workspaceId) == 'owner';
+    }
+    
+    // Check if user can manage members
+    function canManageMembers(workspaceId) {
+      let role = getWorkspaceMemberRole(workspaceId);
+      return role in ['owner', 'admin'];
+    }
+    
+    // ============ USERS COLLECTION ============
+    
+    match /users/{userId} {
+      // Users can read and write their own data
+      allow read: if isAuthenticated() && getUserId() == userId;
+      allow write: if isAuthenticated() && getUserId() == userId;
+    }
+    
+    // ============ WORKSPACES COLLECTION ============
+    
+    match /workspaces/{workspaceId} {
+      // Members can read workspace data
+      allow read: if isAuthenticated() && isWorkspaceMember(workspaceId);
+      
+      // Anyone authenticated can create a workspace
+      allow create: if isAuthenticated();
+      
+      // Owners and admins can update workspace
+      allow update: if isAuthenticated() && canEditWorkspace(workspaceId);
+      
+      // Only owners can delete workspace
+      allow delete: if isAuthenticated() && isWorkspaceOwner(workspaceId);
+    }
+    
+    // ============ WORKSPACE MEMBERS COLLECTION ============
+    
+    match /workspace_members/{memberId} {
+      // Members can read if they're the user OR a member of the workspace
+      allow read: if isAuthenticated() && (
+        getUserId() == resource.data.userId ||
+        isWorkspaceMember(resource.data.workspaceId)
+      );
+      
+      // Anyone can create (for joining workspaces)
+      allow create: if isAuthenticated();
+      
+      // Owners and admins can update member roles
+      allow update: if isAuthenticated() && canManageMembers(resource.data.workspaceId);
+      
+      // Users can delete their own membership OR owners/admins can remove members
+      allow delete: if isAuthenticated() && (
+        getUserId() == resource.data.userId ||
+        canManageMembers(resource.data.workspaceId)
+      );
+    }
+    
+    // ============ WORKSPACE INVITATIONS COLLECTION ============
+    
+    match /workspace_invitations/{inviteId} {
+      // Anyone authenticated can read invitations (to validate codes)
+      allow read: if isAuthenticated();
+      
+      // Owners and admins can create invitations
+      allow create: if isAuthenticated() && canManageMembers(request.resource.data.workspaceId);
+      
+      // Owners and admins can update/revoke invitations
+      allow update: if isAuthenticated() && canManageMembers(resource.data.workspaceId);
+      
+      // Only owners can delete invitations
+      allow delete: if isAuthenticated() && isWorkspaceOwner(resource.data.workspaceId);
+    }
+    
+    // ============ LEAD FILES COLLECTION ============
+    
+    match /lead_files/{fileId} {
+      // Members can read files in their workspace
+      allow read: if isAuthenticated() && isWorkspaceMember(resource.data.workspaceId);
+      
+      // Members can create files in their workspace
+      allow create: if isAuthenticated() && isWorkspaceMember(request.resource.data.workspaceId);
+      
+      // Members with edit permission can update files
+      allow update: if isAuthenticated() && canEditWorkspace(resource.data.workspaceId);
+      
+      // File creator or workspace owner can delete files
+      allow delete: if isAuthenticated() && (
+        getUserId() == resource.data.createdBy ||
+        isWorkspaceOwner(resource.data.workspaceId)
+      );
+      
+      // ============ LEADS SUBCOLLECTION ============
+      
+      match /leads/{leadId} {
+        // Members can read leads if they're in the workspace
+        allow read: if isAuthenticated() && isWorkspaceMember(
+          get(/databases/$(database)/documents/lead_files/$(fileId)).data.workspaceId
+        );
+        
+        // Members with edit permission can write leads
+        allow write: if isAuthenticated() && canEditWorkspace(
+          get(/databases/$(database)/documents/lead_files/$(fileId)).data.workspaceId
+        );
+      }
+    }
+  }
+}

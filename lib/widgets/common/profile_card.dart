@@ -3,9 +3,9 @@ import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/utils/responsive.dart';
 import '../../providers/auth_provider.dart';
-import '../../providers/leads_provider.dart';
+import '../../providers/workspace_provider.dart';
 
-/// Profile card showing user info and lead statistics
+/// Profile card showing user info and workspace lead statistics
 class ProfileCard extends StatelessWidget {
   const ProfileCard({super.key});
 
@@ -82,13 +82,60 @@ class ProfileCard extends StatelessWidget {
                 );
               },
             ),
+            SizedBox(height: isMobile ? 12 : 16),
+            // Workspace name
+            Consumer<WorkspaceProvider>(
+              builder: (context, workspaceProvider, _) {
+                final workspace = workspaceProvider.currentWorkspace;
+                return Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryPurple.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.workspaces,
+                        size: 14,
+                        color: AppColors.primaryPurple,
+                      ),
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Text(
+                          workspace?.name ?? 'No Workspace',
+                          style: TextStyle(
+                            fontSize: isMobile ? 11 : 12,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.primaryPurple,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
             SizedBox(height: isMobile ? 16 : 20),
             Divider(height: 1, color: AppColors.borderGrey.withValues(alpha: 0.5)),
             SizedBox(height: isMobile ? 16 : 20),
             // Stats
-            Consumer<LeadsProvider>(
-              builder: (context, leadsProvider, _) {
-                final stats = leadsProvider.userStats;
+            Consumer<WorkspaceProvider>(
+              builder: (context, workspaceProvider, _) {
+                final stats = workspaceProvider.currentWorkspace?.stats;
+                if (stats == null) {
+                  return Center(
+                    child: Text(
+                      'No stats available',
+                      style: TextStyle(
+                        color: AppColors.mediumGrey,
+                        fontSize: isMobile ? 12 : 14,
+                      ),
+                    ),
+                  );
+                }
                 return _buildStatsGrid(context, stats, isMobile);
               },
             ),
@@ -99,13 +146,17 @@ class ProfileCard extends StatelessWidget {
   }
 
   Widget _buildStatsGrid(BuildContext context, dynamic stats, bool isMobile) {
+    final conversionRate = stats.totalLeads > 0 
+        ? (stats.accepted / stats.totalLeads) * 100 
+        : 0.0;
+
     final items = [
       _StatData('Total Leads', stats.totalLeads.toString(), AppColors.primaryPurple),
       _StatData('Unreached', stats.unreached.toString(), AppColors.mediumGrey),
       _StatData('Follow Ups', stats.followUps.toString(), AppColors.warningOrange),
       _StatData('No Response', stats.noResponse.toString(), AppColors.errorRed),
       _StatData('Accepted', stats.accepted.toString(), AppColors.successGreen),
-      _StatData('Rate', '${stats.conversionRate.toStringAsFixed(1)}%', AppColors.infoBlue),
+      _StatData('Rate', '${conversionRate.toStringAsFixed(1)}%', AppColors.infoBlue),
     ];
 
     return GridView.builder(

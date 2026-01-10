@@ -37,10 +37,10 @@ class FirestoreService {
     });
   }
 
-  /// Update user stats
-  Future<void> updateUserStats(String uid, UserStats stats) async {
-    await _usersCollection.doc(uid).update({
-      'totalStats': stats.toMap(),
+  /// Update workspace stats
+  Future<void> updateWorkspaceStats(String workspaceId, Map<String, dynamic> stats) async {
+    await FirebaseFirestore.instance.collection('workspaces').doc(workspaceId).update({
+      'stats': stats,
     });
   }
 
@@ -52,10 +52,11 @@ class FirestoreService {
     return docRef.id;
   }
 
-  /// Get all lead files for a user
-  Future<List<LeadFileModel>> getLeadFiles(String userId) async {
+  /// Get all lead files for a user or workspace
+  /// If workspaceId is provided, filters by workspace, otherwise by userId
+  Future<List<LeadFileModel>> getLeadFiles(String userOrWorkspaceId, {bool isWorkspace = false}) async {
     final snapshot = await _leadFilesCollection
-        .where('userId', isEqualTo: userId)
+        .where(isWorkspace ? 'workspaceId' : 'userId', isEqualTo: userOrWorkspaceId)
         .get();
 
     final files = snapshot.docs
@@ -69,10 +70,11 @@ class FirestoreService {
   }
 
   /// Stream lead files for real-time updates
+  /// If workspaceId is provided, filters by workspace, otherwise by userId
   /// Note: This uses client-side sorting to avoid needing Firestore composite indexes
-  Stream<List<LeadFileModel>> streamLeadFiles(String userId) {
+  Stream<List<LeadFileModel>> streamLeadFiles(String userOrWorkspaceId, {bool isWorkspace = false}) {
     return _leadFilesCollection
-        .where('userId', isEqualTo: userId)
+        .where(isWorkspace ? 'workspaceId' : 'userId', isEqualTo: userOrWorkspaceId)
         .snapshots()
         .map((snapshot) {
           final files = snapshot.docs
@@ -87,10 +89,11 @@ class FirestoreService {
   }
 
   /// Get recent lead files (limited)
+  /// If workspaceId is provided, filters by workspace, otherwise by userId
   /// Note: This uses client-side sorting and limiting to avoid needing Firestore composite indexes
-  Stream<List<LeadFileModel>> streamRecentLeadFiles(String userId, {int limit = 5}) {
+  Stream<List<LeadFileModel>> streamRecentLeadFiles(String userOrWorkspaceId, {int limit = 5, bool isWorkspace = false}) {
     return _leadFilesCollection
-        .where('userId', isEqualTo: userId)
+        .where(isWorkspace ? 'workspaceId' : 'userId', isEqualTo: userOrWorkspaceId)
         .snapshots()
         .map((snapshot) {
           final files = snapshot.docs
